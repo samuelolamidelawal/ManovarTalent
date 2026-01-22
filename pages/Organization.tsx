@@ -231,7 +231,7 @@ const OrganizationPage: React.FC<OrganizationPageProps> = ({ role }) => {
           <div className="flex items-center space-x-1 bg-white border border-slate-200 p-1 rounded-xl shadow-sm">
             <ViewButton label="Strategy" active={viewMode === 'strategy'} onClick={() => setViewMode('strategy')} icon={<Compass size={14}/>} />
             <ViewButton label="Directory" active={viewMode === 'directory'} onClick={() => setViewMode('directory')} icon={<Building2 size={14}/>} />
-            <ViewButton label="Org Chart" active={viewMode === 'chart'} onClick={() => setViewMode('chart'} icon={<Network size={14}/>} />
+            <ViewButton label="Org Chart" active={viewMode === 'chart'} onClick={() => setViewMode('chart')} icon={<Network size={14}/>} />
           </div>
         )}
       </div>
