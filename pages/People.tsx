@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Users, 
   Search, 
@@ -51,15 +50,21 @@ import {
   CheckCircle2,
   ListTodo,
   Timer,
-  // Added Download and User to fix "Cannot find name" errors.
   Download,
-  User
+  User,
+  Camera,
+  Globe,
+  Building2,
+  Shield,
+  Fingerprint,
+  /* Added RefreshCw to fix "Cannot find name 'RefreshCw'" error */
+  RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Pagination from '../components/common/Pagination';
 import { UserRole } from '../types';
 
-const MOCK_PEOPLE = [
+const INITIAL_PEOPLE = [
   { 
     id: 1, 
     name: "Sarah Chen", 
@@ -75,7 +80,7 @@ const MOCK_PEOPLE = [
     currentFocus: "v4.0 Core Engine GA",
     pastReviews: [
       { period: "Q2 2024", score: "4.8/5", status: "Exceptional", summary: "Exceeded all OKR targets for the engine refactor.", krAttainment: 94, kpiVelocity: 98 },
-      { period: "Q1 2024", score: "4.5/5", status: "Exceeds Expectations", summary: "Strong leadership during the Q1 roadmap pivot.", krAttainment: 88, kpiVelocity: 92 }
+      { period: "Q1 2024", score: "4.5/5", status: "Excees Expectations", summary: "Strong leadership during the Q1 roadmap pivot.", krAttainment: 88, kpiVelocity: 92 }
     ],
     idp: {
       goals: [
@@ -164,6 +169,14 @@ const MOCK_PEOPLE = [
     }
   },
   { id: 4, name: "Jordan Smith", title: "Staff Engineer", level: "L8", dept: "Core Platform", health: 85, avatar: "https://picsum.photos/seed/jordan/100/100", email: "jordan.s@manovar.ai", pastReviews: [], idp: { goals: [], skills: [] } },
+  { id: 5, name: "Elena Rossi", title: "Account Executive", level: "L5", dept: "Sales", health: 92, avatar: "https://picsum.photos/seed/elena/100/100", email: "elena.r@manovar.ai", pastReviews: [], idp: { goals: [], skills: [] } },
+  { id: 6, name: "Marcus Thorne", title: "Engineering Mgr", level: "L7", dept: "Infrastructure", health: 88, avatar: "https://picsum.photos/seed/marcus2/100/100", email: "marcus.t@manovar.ai", pastReviews: [], idp: { goals: [], skills: [] } },
+  { id: 7, name: "Sophia Williams", title: "HR Generalist", level: "L4", dept: "Legal & People", health: 95, avatar: "https://picsum.photos/seed/sophia/100/100", email: "sophia.w@manovar.ai", pastReviews: [], idp: { goals: [], skills: [] } },
+  { id: 8, name: "James Miller", title: "Data Scientist", level: "L6", dept: "Analytics", health: 78, avatar: "https://picsum.photos/seed/james/100/100", email: "james.m@manovar.ai", pastReviews: [], idp: { goals: [], skills: [] } },
+  { id: 9, name: "Olivia Brown", title: "Content Strategist", level: "L5", dept: "Marketing", health: 90, avatar: "https://picsum.photos/seed/olivia/100/100", email: "olivia.b@manovar.ai", pastReviews: [], idp: { goals: [], skills: [] } },
+  { id: 10, name: "Liam Wilson", title: "Security Analyst", level: "L5", dept: "Security Unit", health: 99, avatar: "https://picsum.photos/seed/liam/100/100", email: "liam.w@manovar.ai", pastReviews: [], idp: { goals: [], skills: [] } },
+  { id: 11, name: "Noah Garcia", title: "Backend Engineer", level: "L4", dept: "Core Platform", health: 64, avatar: "https://picsum.photos/seed/noah/100/100", email: "noah.g@manovar.ai", pastReviews: [], idp: { goals: [], skills: [] } },
+  { id: 12, name: "Ava Martinez", title: "Customer Success", level: "L5", dept: "Sales", health: 82, avatar: "https://picsum.photos/seed/ava/100/100", email: "ava.m@manovar.ai", pastReviews: [], idp: { goals: [], skills: [] } },
 ];
 
 interface PeoplePageProps {
@@ -178,10 +191,21 @@ const PeoplePage: React.FC<PeoplePageProps> = ({ role = UserRole.ORG_ADMIN }) =>
   const [profileTab, setProfileTab] = useState<'info' | 'history' | 'idp'>('info');
   const [isPipActionOpen, setIsPipActionOpen] = useState(false);
   const [viewingPipProgress, setViewingPipProgress] = useState(false);
+  const [people, setPeople] = useState(INITIAL_PEOPLE);
+  const [searchTerm, setSearchTerm] = useState('');
+  
   const navigate = useNavigate();
   
-  const itemsPerPage = 10;
-  const currentItems = MOCK_PEOPLE.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const itemsPerPage = 8;
+  const filteredPeople = useMemo(() => {
+    return people.filter(p => 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      p.dept.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.title.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [searchTerm, people]);
+
+  const currentItems = filteredPeople.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const isManagerView = role === UserRole.MANAGER;
   const canManage = [UserRole.ORG_ADMIN, UserRole.HR, UserRole.MANAGER].includes(role);
 
@@ -192,6 +216,19 @@ const PeoplePage: React.FC<PeoplePageProps> = ({ role = UserRole.ORG_ADMIN }) =>
 
   const handleOpenPipProgress = () => {
     setViewingPipProgress(true);
+  };
+
+  const handleInductPerson = (newPerson: any) => {
+    const personWithMetadata = {
+      ...newPerson,
+      id: Date.now(),
+      health: 100, // Initial induction health
+      avatar: `https://picsum.photos/seed/${newPerson.name}/100/100`,
+      pastReviews: [],
+      idp: { goals: [], skills: [] }
+    };
+    setPeople([personWithMetadata, ...people]);
+    setIsAddModalOpen(false);
   };
 
   if (viewingPipProgress && selectedPerson) {
@@ -220,82 +257,109 @@ const PeoplePage: React.FC<PeoplePageProps> = ({ role = UserRole.ORG_ADMIN }) =>
               onClick={() => setIsAddModalOpen(true)}
               className="flex items-center space-x-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
             >
-              <Users size={16} />
-              <span>Add Person</span>
+              <UserPlus size={16} />
+              <span>Induct Personnel</span>
             </button>
           )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <DataIndicator label="Data Completeness" value="94%" color="green" />
+        <DataIndicator label="Total Personnel" value={people.length.toString()} color="primary" />
         <DataIndicator label="Skill Density" value="High" color="primary" />
         <DataIndicator label="Anomaly Detection" value="2 Flags" color="red" />
         <DataIndicator label="Audit Status" value="Healthy" color="green" />
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+      <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden flex flex-col min-h-[600px]">
+        <div className="p-6 border-b border-slate-100 bg-slate-50/30 flex items-center justify-between">
            <div className="flex items-center space-x-4">
-              <div className="relative w-64">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input type="text" placeholder="Search talent..." className="w-full bg-slate-50 border border-transparent rounded-lg pl-10 pr-4 py-2 text-xs focus:bg-white focus:border-primary outline-none transition-all" />
+              <div className="relative w-72 group">
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" />
+                <input 
+                  type="text" 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search by name, role or department..." 
+                  className="w-full bg-white border border-slate-200 rounded-xl pl-12 pr-4 py-2.5 text-xs font-bold focus:ring-4 focus:ring-primary/5 focus:border-primary/30 outline-none transition-all" 
+                />
               </div>
+              <button className="p-2.5 bg-white border border-slate-200 text-slate-400 rounded-xl hover:text-primary transition-all shadow-sm">
+                <Filter size={16} />
+              </button>
+           </div>
+           <div className="flex items-center space-x-6 text-[10px] font-black text-slate-400 uppercase tracking-widest px-4 border-l border-slate-100">
+              <div className="flex items-center space-x-2"><div className="w-2 h-2 rounded-full bg-green-500" /><span>Optimal</span></div>
+              <div className="flex items-center space-x-2"><div className="w-2 h-2 rounded-full bg-amber-500" /><span>Strained</span></div>
+              <div className="flex items-center space-x-2"><div className="w-2 h-2 rounded-full bg-red-500" /><span>Critical</span></div>
            </div>
         </div>
 
-        <table className="w-full">
-          <thead className="bg-slate-50 border-b border-slate-100">
-            <tr>
-              <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Employee</th>
-              <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Role & Level</th>
-              <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</th>
-              <th className="px-6 py-4 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Health</th>
-              <th className="px-6 py-4 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-             {currentItems.map((person) => (
-               <PersonRow 
-                 key={person.id}
-                 person={person}
-                 canManage={canManage}
-                 onView={() => {
-                   setSelectedPerson(person);
-                   setIsViewOpen(true);
-                   setProfileTab('info');
-                 }}
-               />
-             ))}
-          </tbody>
-        </table>
-        <Pagination currentPage={currentPage} totalItems={MOCK_PEOPLE.length} itemsPerPage={itemsPerPage} onPageChange={setCurrentPage} />
+        <div className="flex-1 overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50/50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+              <tr>
+                <th className="px-8 py-5">Institutional Personnel</th>
+                <th className="px-8 py-5">Designation & Tier</th>
+                <th className="px-8 py-5">Functional Unit</th>
+                <th className="px-8 py-5">Attainment Health</th>
+                <th className="px-8 py-5 text-right">Strategic Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50 bg-white">
+               {currentItems.map((person) => (
+                 <PersonRow 
+                   key={person.id}
+                   person={person}
+                   canManage={canManage}
+                   onView={() => {
+                     setSelectedPerson(person);
+                     setIsViewOpen(true);
+                     setProfileTab('info');
+                   }}
+                 />
+               ))}
+               {currentItems.length === 0 && (
+                 <tr>
+                    <td colSpan={5} className="py-32 text-center text-slate-400 font-bold uppercase tracking-widest text-xs italic">No personnel records matched your query.</td>
+                 </tr>
+               )}
+            </tbody>
+          </table>
+        </div>
+        <Pagination currentPage={currentPage} totalItems={filteredPeople.length} itemsPerPage={itemsPerPage} onPageChange={setCurrentPage} />
       </div>
 
-      {/* View Profile Slide-over */}
+      {/* --- MODALS --- */}
+
+      {isAddModalOpen && (
+        <AddPersonModal onAdd={handleInductPerson} onClose={() => setIsAddModalOpen(false)} />
+      )}
+
+      {/* Profile Detail Slide-over */}
       {isViewOpen && selectedPerson && (
         <>
           <div className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsViewOpen(false)}></div>
           <div className="fixed top-0 right-0 bottom-0 w-full sm:w-[550px] bg-white z-[120] shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 overflow-hidden">
-            <div className="relative h-48 bg-slate-900 overflow-hidden shrink-0">
+            <div className="relative h-56 bg-slate-900 overflow-hidden shrink-0">
                <div className="absolute inset-0 bg-gradient-to-br from-primary/40 to-secondary/40"></div>
-               <button onClick={() => setIsViewOpen(false)} className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all z-20">
+               <button onClick={() => setIsViewOpen(false)} className="absolute top-6 right-6 p-2.5 bg-black/20 hover:bg-black/40 text-white rounded-xl transition-all z-20 backdrop-blur-md">
                   <X size={20} />
                </button>
             </div>
             
-            <div className="px-8 -mt-16 flex-1 pb-12 overflow-y-auto custom-scrollbar relative bg-white">
+            <div className="px-10 -mt-16 flex-1 pb-12 overflow-y-auto custom-scrollbar relative bg-white">
                <div className="flex flex-col">
                   <div className="relative inline-block w-fit">
-                    <img src={selectedPerson.avatar} className="w-32 h-32 rounded-3xl border-4 border-white shadow-2xl relative z-10 bg-white object-cover" alt={selectedPerson.name} />
+                    <img src={selectedPerson.avatar} className="w-36 h-36 rounded-[2.5rem] border-[6px] border-white shadow-2xl relative z-10 bg-white object-cover" alt={selectedPerson.name} />
                   </div>
                   
-                  <div className="mt-6 flex flex-col space-y-6">
+                  <div className="mt-8 flex flex-col space-y-8">
                     <div className="flex items-center justify-between">
                       <div>
                         <h2 className="text-3xl font-black text-slate-900 tracking-tight uppercase leading-none">{selectedPerson.name}</h2>
-                        <p className="text-slate-500 font-bold text-lg flex items-center mt-1">
-                          {selectedPerson.title} <span className="mx-2 text-slate-200">|</span> <span className="text-primary">{selectedPerson.level}</span>
+                        <p className="text-slate-500 font-bold text-lg flex items-center mt-2">
+                          {selectedPerson.title} <span className="mx-3 text-slate-200">|</span> <span className="text-primary">{selectedPerson.level}</span>
                         </p>
                       </div>
                       
@@ -303,7 +367,7 @@ const PeoplePage: React.FC<PeoplePageProps> = ({ role = UserRole.ORG_ADMIN }) =>
                         <div className="relative">
                           <button 
                             onClick={() => setIsPipActionOpen(!isPipActionOpen)}
-                            className={`p-3 rounded-2xl border transition-all flex items-center space-x-2 ${isPipActionOpen ? 'bg-indigo-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                            className={`p-3.5 rounded-2xl border transition-all flex items-center space-x-2 ${isPipActionOpen ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 shadow-sm'}`}
                           >
                              <PipIcon size={18} />
                              <ChevronDown size={14} className={`transition-transform ${isPipActionOpen ? 'rotate-180' : ''}`} />
@@ -311,18 +375,18 @@ const PeoplePage: React.FC<PeoplePageProps> = ({ role = UserRole.ORG_ADMIN }) =>
                           {isPipActionOpen && (
                             <>
                               <div className="fixed inset-0 z-10" onClick={() => setIsPipActionOpen(false)}></div>
-                              <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-100 shadow-2xl rounded-2xl z-20 p-2 animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
-                                 <p className="px-3 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-50">Governance Units</p>
+                              <div className="absolute right-0 mt-3 w-64 bg-white border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.15)] rounded-2xl z-20 p-2 animate-in fade-in zoom-in-95 duration-100 overflow-hidden">
+                                 <p className="px-4 py-3 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50">Governance Overrides</p>
                                  <button 
                                   onClick={handleOpenPipWizard}
-                                  className="w-full flex items-center space-x-3 px-3 py-3 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all text-left"
+                                  className="w-full flex items-center space-x-3 px-3 py-3.5 text-xs font-black text-indigo-600 hover:bg-indigo-50/50 rounded-xl transition-all text-left uppercase tracking-tight"
                                  >
                                     <PipIcon size={16} />
                                     <span>Initiate Formal PIP</span>
                                  </button>
-                                 <button className="w-full flex items-center space-x-3 px-3 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 rounded-xl transition-all text-left">
-                                    <Flag size={16} />
-                                    <span>Mark Performance Flag</span>
+                                 <button className="w-full flex items-center space-x-3 px-3 py-3.5 text-xs font-black text-slate-700 hover:bg-slate-50 rounded-xl transition-all text-left uppercase tracking-tight">
+                                    <Flag size={16} className="text-slate-400" />
+                                    <span>Mark Strategy Flag</span>
                                  </button>
                               </div>
                             </>
@@ -331,229 +395,155 @@ const PeoplePage: React.FC<PeoplePageProps> = ({ role = UserRole.ORG_ADMIN }) =>
                       )}
                     </div>
 
-                    <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl w-full shadow-inner">
-                       <ProfileTabButton active={profileTab === 'info'} onClick={() => setProfileTab('info')} label="Context" />
-                       <ProfileTabButton active={profileTab === 'history'} onClick={() => setProfileTab('history')} label="Horizon Archive" />
-                       <ProfileTabButton active={profileTab === 'idp'} onClick={() => setProfileTab('idp')} label="Growth & IDP" />
+                    <div className="flex items-center space-x-1 bg-slate-50 p-1 rounded-[1.25rem] w-full shadow-inner border border-slate-100">
+                       <ProfileTabButton active={profileTab === 'info'} onClick={() => setProfileTab('info')} label="Contextual Identity" />
+                       <ProfileTabButton active={profileTab === 'history'} onClick={() => setProfileTab('history')} label="Horizon Audit" />
+                       <ProfileTabButton active={profileTab === 'idp'} onClick={() => setProfileTab('idp')} label="Growth Node" />
                     </div>
 
-                    {/* Context Tab */}
                     {profileTab === 'info' && (
-                      <div className="space-y-8 animate-in fade-in duration-300 pb-8">
+                      <div className="space-y-10 animate-in fade-in duration-300 pb-8">
                         <div className="grid grid-cols-2 gap-4">
-                          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Department</p>
-                            <p className="text-sm font-black text-slate-800 tracking-tight">{selectedPerson.dept}</p>
+                          <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 shadow-sm">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-2">Institutional Dept</p>
+                            <p className="text-sm font-black text-slate-800 tracking-tight uppercase">{selectedPerson.dept}</p>
                           </div>
-                          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm">
-                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Institutional Health</p>
+                          <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 shadow-sm">
+                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-2">Health Index</p>
                             <p className={`text-sm font-black tracking-tight ${selectedPerson.health < 50 ? 'text-red-600' : 'text-primary'}`}>{selectedPerson.health}%</p>
                           </div>
                         </div>
 
                         <div className="space-y-4">
-                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Institutional Profile</h4>
-                          <div className="bg-slate-50 border border-slate-100 rounded-3xl p-6 space-y-4 shadow-sm">
-                            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-                              <div className="flex items-center space-x-3 text-slate-500">
-                                <MapPin size={14} />
-                                <span className="text-xs font-bold">{selectedPerson.location || "Not specified"}</span>
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Institutional Signature</h4>
+                          <div className="bg-slate-50 border border-slate-100 rounded-[2.5rem] p-8 space-y-6 shadow-sm">
+                            <div className="flex items-center justify-between border-b border-slate-200 pb-6">
+                              <div className="flex items-center space-x-4 text-slate-500">
+                                <MapPin size={18} />
+                                <span className="text-sm font-bold uppercase tracking-tight">{selectedPerson.location || "System Node"}</span>
                               </div>
-                              <div className="flex items-center space-x-3 text-slate-500">
-                                <Clock size={14} />
-                                <span className="text-xs font-bold">Tenure: {selectedPerson.tenure || "--"}</span>
+                              <div className="flex items-center space-x-4 text-slate-500">
+                                <Clock size={18} />
+                                <span className="text-sm font-bold uppercase tracking-tight">Tenure: {selectedPerson.tenure || "--"}</span>
                               </div>
                             </div>
-                            <div className="space-y-2">
-                               <p className="text-[9px] font-black text-slate-400 uppercase">Core Strengths</p>
-                               <div className="flex flex-wrap gap-2">
+                            <div className="space-y-3">
+                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Active Skill Clusters</p>
+                               <div className="flex flex-wrap gap-2.5">
                                   {(selectedPerson.strengths || ["Strategy", "Execution"]).map((s: string) => (
-                                    <span key={s} className="px-2.5 py-1 bg-white border border-slate-200 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-tight">{s}</span>
+                                    <span key={s} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-[10px] font-black uppercase tracking-tight shadow-sm">{s}</span>
                                   ))}
                                </div>
                             </div>
-                            <div className="pt-2">
-                               <p className="text-[9px] font-black text-slate-400 uppercase">Current Performance Anchor</p>
-                               <p className="text-sm font-bold text-slate-800 mt-1">{selectedPerson.currentFocus || "Strategy Alignment"}</p>
-                            </div>
                           </div>
                         </div>
-
-                        {selectedPerson.health < 50 && !selectedPerson.pipOngoing && (
-                          <div className="p-6 bg-red-50 border-2 border-red-100 rounded-[2rem] flex items-start space-x-5 shadow-sm">
-                             <div className="p-3 bg-white rounded-2xl text-red-600 border border-red-50 shrink-0 shadow-sm">
-                                <PipIcon size={24} />
-                             </div>
-                             <div>
-                                <p className="text-sm font-black text-red-900 uppercase tracking-tight">Escalation Threshold Triggered</p>
-                                <p className="text-xs text-red-700 mt-2 leading-relaxed font-medium">Health index is below institutional tolerance (50%). Formal Performance Improvement escalation is recommended via the Governance menu above.</p>
-                             </div>
-                          </div>
-                        )}
                         
                         <div className="space-y-4">
                           <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Performance Archetype</h4>
-                          <div className="p-6 bg-primary/5 border border-primary/10 rounded-3xl flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                               <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-primary shadow-sm">
-                                  <Medal size={24} />
+                          <div className="p-8 bg-slate-900 rounded-[2.5rem] flex items-center justify-between text-white shadow-2xl relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity"><BrainCircuit size={100} className="text-primary" /></div>
+                            <div className="flex items-center space-x-6 relative z-10">
+                               <div className="w-16 h-16 bg-primary/20 text-primary border border-primary/20 rounded-3xl flex items-center justify-center shadow-lg">
+                                  <Medal size={32} />
                                </div>
                                <div>
-                                  <p className="text-sm font-black text-slate-900">Elite Individual Contributor</p>
-                                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Top 5% for Role Cohort</p>
+                                  <p className="text-lg font-black uppercase tracking-tight">Elite Global Node</p>
+                                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Top-Decile for Personnel Tier</p>
                                </div>
                             </div>
-                            <TrendingUp size={24} className="text-primary opacity-20" />
+                            <Activity size={32} className="text-primary opacity-20 relative z-10" />
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {/* Horizon Archive Tab */}
                     {profileTab === 'history' && (
-                      <div className="space-y-6 animate-in fade-in duration-300 pb-8">
+                      <div className="space-y-8 animate-in fade-in duration-300 pb-8">
                          <div className="flex items-center justify-between px-1">
-                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Calibration Ledger</h4>
-                            <span className="text-[9px] font-bold text-slate-400 uppercase">{selectedPerson.pastReviews.length} Archived Cycles</span>
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-l-4 border-primary pl-4">Calibration Archives</h4>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">{selectedPerson.pastReviews.length} Verified Records</span>
                          </div>
                          <div className="space-y-4">
                            {selectedPerson.pastReviews.map((rev: any, idx: number) => (
-                             <div key={idx} className="group relative">
-                               {idx < selectedPerson.pastReviews.length - 1 && (
-                                 <div className="absolute left-10 top-20 bottom-0 w-[2px] bg-slate-100 z-0" />
-                               )}
-                               <div className="p-6 border border-slate-100 rounded-3xl bg-white hover:border-primary/20 transition-all shadow-sm relative z-10">
-                                  <div className="flex justify-between items-start mb-6">
-                                     <div className="flex items-center space-x-4">
-                                        <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors shadow-inner">
-                                           <History size={18} />
-                                        </div>
-                                        <div>
-                                           <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">{rev.period}</p>
-                                           <p className="text-sm font-black text-slate-900 tracking-tight">Calibration: {rev.score}</p>
-                                        </div>
-                                     </div>
-                                     <span className="px-2.5 py-1 bg-primary/10 text-primary rounded-lg text-[8px] font-black uppercase tracking-widest shadow-sm">{rev.status}</span>
-                                  </div>
-                                  
-                                  <div className="grid grid-cols-2 gap-3 mb-6">
-                                     <div className="p-3 bg-slate-50 rounded-2xl flex flex-col justify-center items-center text-center border border-slate-100">
-                                        <p className="text-[8px] font-black text-slate-400 uppercase mb-1">OKR Attainment</p>
-                                        <p className="text-xs font-black text-slate-900">{rev.krAttainment}%</p>
-                                     </div>
-                                     <div className="p-3 bg-slate-50 rounded-2xl flex flex-col justify-center items-center text-center border border-slate-100">
-                                        <p className="text-[8px] font-black text-slate-400 uppercase mb-1">KPI Velocity</p>
-                                        <p className="text-xs font-black text-slate-900">{rev.kpiVelocity}%</p>
-                                     </div>
-                                  </div>
+                             <div key={idx} className="p-8 border border-slate-100 rounded-[2rem] bg-slate-50/30 hover:bg-white hover:shadow-xl hover:border-primary/20 transition-all group">
+                                <div className="flex justify-between items-start mb-8">
+                                   <div className="flex items-center space-x-5">
+                                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-all shadow-sm">
+                                         <History size={22} />
+                                      </div>
+                                      <div>
+                                         <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1.5">{rev.period}</p>
+                                         <p className="text-base font-black text-slate-900 tracking-tight uppercase">Index: {rev.score}</p>
+                                      </div>
+                                   </div>
+                                   <span className="px-3 py-1 bg-primary text-white rounded-xl text-[8px] font-black uppercase tracking-widest shadow-md shadow-primary/10">{rev.status}</span>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4 mb-8">
+                                   <div className="p-4 bg-white rounded-2xl flex flex-col items-center justify-center text-center border border-slate-100 shadow-inner">
+                                      <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Attainment</p>
+                                      <p className="text-lg font-black text-slate-900">{rev.krAttainment}%</p>
+                                   </div>
+                                   <div className="p-4 bg-white rounded-2xl flex flex-col items-center justify-center text-center border border-slate-100 shadow-inner">
+                                      <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Velocity</p>
+                                      <p className="text-lg font-black text-slate-900">{rev.kpiVelocity}%</p>
+                                   </div>
+                                </div>
 
-                                  <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100 italic font-medium text-[11px] text-slate-500 leading-relaxed">
-                                     "{rev.summary}"
-                                  </div>
-                               </div>
+                                <div className="p-6 bg-white rounded-3xl border border-slate-100 italic font-medium text-xs text-slate-500 leading-relaxed shadow-sm">
+                                   "{rev.summary}"
+                                </div>
                              </div>
                            ))}
                            {selectedPerson.pastReviews.length === 0 && (
-                             <div className="py-20 text-center flex flex-col items-center space-y-4">
-                                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-200">
-                                   <History size={32} />
-                                </div>
-                                <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">No archived reviews found</p>
+                             <div className="py-24 text-center flex flex-col items-center space-y-4 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
+                                <History size={48} className="text-slate-200" />
+                                <p className="text-slate-400 font-black uppercase text-xs tracking-[0.2em]">Institutional archive empty</p>
                              </div>
                            )}
                          </div>
                       </div>
                     )}
 
-                    {/* Growth & IDP Tab */}
                     {profileTab === 'idp' && (
-                      <div className="space-y-8 animate-in fade-in duration-300 pb-8">
-                         {/* MANAGER VIEW: Ongoing PIP Progress Access */}
-                         {isManagerView && selectedPerson.pipOngoing && (
-                            <div className="p-6 bg-indigo-50 border-2 border-indigo-100 rounded-[2rem] shadow-sm flex items-center justify-between group hover:border-indigo-600/30 transition-all">
-                               <div className="flex items-center space-x-5">
-                                  <div className="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-100">
-                                     <PipIcon size={28} />
-                                  </div>
-                                  <div>
-                                     <p className="text-[10px] font-black text-indigo-700 uppercase tracking-[0.2em] leading-none mb-2">Institutional Protocol</p>
-                                     <h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Ongoing PIP Active</h4>
-                                     <div className="flex items-center space-x-3 mt-2">
-                                        <div className="h-1 w-24 bg-slate-200 rounded-full overflow-hidden shadow-inner">
-                                           <div className="h-full bg-indigo-600" style={{ width: `${selectedPerson.pipData.progress}%` }} />
-                                        </div>
-                                        <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">{selectedPerson.pipData.progress}% Milestone</span>
-                                     </div>
-                                  </div>
-                               </div>
-                               <button 
-                                onClick={handleOpenPipProgress}
-                                className="px-6 py-3 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center space-x-2"
-                               >
-                                  <span>View PIP Progress</span>
-                                  <ArrowRight size={14} />
-                               </button>
-                            </div>
-                         )}
-
-                         <div className="space-y-4">
+                      <div className="space-y-10 animate-in fade-in duration-300 pb-8">
+                         <div className="space-y-6">
                             <div className="flex items-center justify-between px-1">
-                               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Institutional Learning Progress</h4>
-                               <button className="text-[10px] font-bold text-primary hover:underline uppercase tracking-widest">Assign Growth Pillar</button>
+                               <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-l-4 border-primary pl-4">Institutional Learning Hub</h4>
+                               <button className="text-[9px] font-black text-primary hover:underline uppercase tracking-widest">Architect Growth</button>
                             </div>
-                            <div className="space-y-3">
+                            <div className="space-y-4">
                                {(selectedPerson.idp?.goals || []).map((goal: any) => (
-                                 <div key={goal.id} className="p-5 border border-slate-100 rounded-3xl bg-white hover:shadow-md transition-all group">
-                                    <div className="flex items-start justify-between mb-4">
-                                       <div className="flex items-center space-x-3">
-                                          <div className="w-10 h-10 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                                             {goal.type === 'Certification' ? <Medal size={20} /> : <BookOpen size={20} />}
+                                 <div key={goal.id} className="p-6 border border-slate-100 rounded-[2rem] bg-white hover:shadow-2xl transition-all group">
+                                    <div className="flex items-start justify-between mb-6">
+                                       <div className="flex items-center space-x-4">
+                                          <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-inner">
+                                             {goal.type === 'Certification' ? <Medal size={24} /> : <BookOpen size={24} />}
                                           </div>
                                           <div>
-                                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{goal.type}</p>
-                                             <h5 className="text-sm font-black text-slate-900 tracking-tight">{goal.title}</h5>
+                                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">{goal.type}</p>
+                                             <h5 className="text-base font-black text-slate-900 tracking-tight uppercase leading-tight">{goal.title}</h5>
                                           </div>
                                        </div>
-                                       <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${goal.status === 'Active' ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-500'}`}>{goal.status}</span>
+                                       <span className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${goal.status === 'Active' || goal.status === 'In Progress' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'bg-slate-100 text-slate-500'}`}>{goal.status}</span>
                                     </div>
-                                    <div className="space-y-2">
-                                       <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
-                                          <span>{goal.provider}</span>
+                                    <div className="space-y-3">
+                                       <div className="flex justify-between items-center text-[10px] font-black text-slate-400">
+                                          <span className="uppercase tracking-widest">{goal.provider}</span>
                                           <span className="text-slate-900">{goal.progress}%</span>
                                        </div>
-                                       <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
-                                          <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${goal.progress}%` }} />
+                                       <div className="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden shadow-inner">
+                                          <div className="h-full bg-indigo-600 transition-all duration-1000" style={{ width: `${goal.progress}%` }} />
                                        </div>
-                                    </div>
-                                    <div className="mt-4 pt-3 border-t border-slate-50 flex items-center space-x-2">
-                                       <Target size={10} className="text-primary" />
-                                       <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Bridges Gap: {goal.linkedGap}</span>
                                     </div>
                                  </div>
                                ))}
                                {(selectedPerson.idp?.goals?.length === 0) && (
-                                 <button className="w-full py-8 border-2 border-dashed border-slate-100 rounded-[2.5rem] flex flex-col items-center justify-center text-slate-400 hover:border-primary/40 hover:text-primary transition-all group bg-slate-50/50">
-                                    <Plus size={24} className="mb-2 group-hover:scale-110 transition-transform" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest">Initialize IDP Cycle</span>
+                                 <button className="w-full py-12 border-2 border-dashed border-slate-100 rounded-[2.5rem] flex flex-col items-center justify-center text-slate-300 hover:text-primary hover:border-primary/40 transition-all group bg-slate-50/30">
+                                    <Plus size={32} className="mb-3 group-hover:scale-110 transition-transform" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Initialize IDP Vector</span>
                                  </button>
                                )}
-                            </div>
-                         </div>
-
-                         <div className="space-y-4">
-                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Skill Maturity Hub</h4>
-                            <div className="grid grid-cols-2 gap-4">
-                               {(selectedPerson.idp?.skills || []).map((skill: any) => (
-                                 <div key={skill.name} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col space-y-3">
-                                    <div className="flex justify-between items-center">
-                                       <span className="text-xs font-bold text-slate-700">{skill.name}</span>
-                                       <span className="text-[10px] font-black text-primary">{skill.level}%</span>
-                                    </div>
-                                    <div className="h-1 w-full bg-white rounded-full overflow-hidden shadow-inner">
-                                       <div className="h-full bg-primary" style={{ width: `${skill.level}%` }} />
-                                    </div>
-                                 </div>
-                               ))}
                             </div>
                          </div>
                       </div>
@@ -569,15 +559,280 @@ const PeoplePage: React.FC<PeoplePageProps> = ({ role = UserRole.ORG_ADMIN }) =>
 };
 
 /**
+ * Add Person Modal - Personnel Induction Architect
+ */
+const AddPersonModal = ({ onAdd, onClose }: { onAdd: (p: any) => void, onClose: () => void }) => {
+  const [step, setStep] = useState(1);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    title: '',
+    dept: 'Core Platform',
+    level: 'L5',
+    location: 'San Francisco, US',
+    roles: ['Employee view']
+  });
+
+  const DEPTS = ['Core Platform', 'Infrastructure', 'Sales', 'Creative', 'Legal & People', 'Analytics', 'Marketing', 'Security Unit'];
+  const LEVELS = ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9'];
+
+  const handleInduct = () => {
+    setIsDeploying(true);
+    setTimeout(() => {
+      onAdd(formData);
+    }, 1200);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="bg-white rounded-[3.5rem] w-full max-w-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+        <div className="p-10 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center space-x-6">
+            <div className="w-14 h-14 bg-primary text-white rounded-[1.5rem] flex items-center justify-center shadow-xl shadow-primary/20">
+              <UserPlus size={28} />
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight uppercase leading-none">Induction Architect</h3>
+              <p className="text-[10px] text-slate-500 mt-2 font-black uppercase tracking-[0.2em] flex items-center">
+                Step {step} of 3 <span className="mx-2 opacity-30">•</span> {step === 1 ? 'IDENTITY Definition' : step === 2 ? 'INSTITUTIONAL PLACEMENT' : 'GOVERNANCE VERIFICATION'}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-3 text-slate-400 hover:bg-white hover:text-slate-600 rounded-2xl transition-all shadow-sm"><X size={28}/></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-12 custom-scrollbar bg-white">
+          {isDeploying ? (
+            <div className="h-full flex flex-col items-center justify-center py-20 text-center space-y-8 animate-in zoom-in-95">
+               <div className="w-24 h-24 bg-primary rounded-[2rem] flex items-center justify-center text-white shadow-2xl animate-spin-slow">
+                  <RefreshCw size={48} />
+               </div>
+               <div>
+                  <h4 className="text-xl font-black uppercase tracking-tight text-slate-900">Synchronizing Institutional Nodes</h4>
+                  <p className="text-slate-400 font-bold text-sm mt-2 uppercase tracking-widest">Indexing {formData.name} in Global performance ledger...</p>
+               </div>
+            </div>
+          ) : (
+            <>
+              {step === 1 && (
+                <div className="space-y-10 animate-in slide-in-from-right duration-400">
+                   <div className="flex items-center justify-center">
+                      <div className="relative group cursor-pointer">
+                         <div className="w-32 h-32 rounded-[2.5rem] bg-slate-50 border-4 border-slate-100 flex flex-col items-center justify-center text-slate-300 group-hover:border-primary transition-all overflow-hidden shadow-inner">
+                            <Camera size={32} className="group-hover:scale-110 transition-transform" />
+                            <span className="text-[8px] font-black uppercase mt-2 tracking-widest">Upload Profile</span>
+                         </div>
+                         <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-primary rounded-2xl border-4 border-white shadow-lg flex items-center justify-center text-white">
+                            <Plus size={18} />
+                         </div>
+                      </div>
+                   </div>
+                   <div className="grid grid-cols-1 gap-8">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Legal Nomenclature</label>
+                        <input 
+                          autoFocus
+                          value={formData.name}
+                          onChange={e => setFormData({...formData, name: e.target.value})}
+                          placeholder="e.g. Marcus Thorne"
+                          className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-8 py-5 font-black text-lg outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all shadow-inner uppercase tracking-tight"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Institutional Mailbox</label>
+                        <div className="relative group">
+                          <Mail size={18} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" />
+                          <input 
+                            value={formData.email}
+                            onChange={e => setFormData({...formData, email: e.target.value})}
+                            placeholder="marcus.t@manovar.ai"
+                            className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl pl-16 pr-8 py-5 font-bold text-base outline-none focus:bg-white focus:border-primary focus:ring-4 focus:ring-primary/5 transition-all shadow-inner"
+                          />
+                        </div>
+                      </div>
+                   </div>
+                </div>
+              )}
+
+              {step === 2 && (
+                <div className="space-y-10 animate-in slide-in-from-right duration-400">
+                   <div className="space-y-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Institutional Designation</label>
+                        <input 
+                          value={formData.title}
+                          onChange={e => setFormData({...formData, title: e.target.value})}
+                          placeholder="e.g. Lead Staff Engineer"
+                          className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-8 py-5 font-black text-lg outline-none focus:bg-white focus:border-primary transition-all shadow-inner uppercase"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-8">
+                         <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Functional Unit</label>
+                            <select 
+                               value={formData.dept}
+                               onChange={e => setFormData({...formData, dept: e.target.value})}
+                               className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 font-black text-xs outline-none focus:bg-white focus:border-primary transition-all shadow-inner appearance-none uppercase"
+                            >
+                               {DEPTS.map(d => <option key={d}>{d}</option>)}
+                            </select>
+                         </div>
+                         <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Calibration Tier</label>
+                            <select 
+                               value={formData.level}
+                               onChange={e => setFormData({...formData, level: e.target.value})}
+                               className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl px-6 py-4 font-black text-xs outline-none focus:bg-white focus:border-primary transition-all shadow-inner appearance-none uppercase"
+                            >
+                               {LEVELS.map(l => <option key={l}>{l}</option>)}
+                            </select>
+                         </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Global Site Node</label>
+                        <div className="relative">
+                           <Globe size={16} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300" />
+                           <input 
+                             value={formData.location}
+                             onChange={e => setFormData({...formData, location: e.target.value})}
+                             placeholder="e.g. London, UK"
+                             className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl pl-14 pr-8 py-4 font-bold text-sm outline-none focus:bg-white focus:border-primary transition-all shadow-inner"
+                           />
+                        </div>
+                      </div>
+                   </div>
+                </div>
+              )}
+
+              {step === 3 && (
+                <div className="space-y-10 animate-in slide-in-from-right duration-400">
+                   <div className="space-y-6">
+                      <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] border-l-4 border-primary pl-4">Governance Framework</label>
+                      <div className="grid grid-cols-1 gap-4">
+                         <div className="p-6 border-2 border-slate-100 rounded-[2rem] bg-slate-50/50 flex items-center justify-between group hover:bg-white hover:border-primary/20 transition-all shadow-sm">
+                            <div className="flex items-center space-x-5">
+                               <div className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-primary"><Shield size={24}/></div>
+                               <div>
+                                  <p className="text-sm font-black text-slate-900 uppercase">Institutional Verification</p>
+                                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Personnel node is audit-compliant</p>
+                               </div>
+                            </div>
+                            <div className="w-12 h-6 bg-primary rounded-full relative shadow-lg shadow-primary/20">
+                               <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full" />
+                            </div>
+                         </div>
+                         <div className="p-10 bg-slate-900 rounded-[3rem] text-white space-y-8 relative overflow-hidden shadow-2xl border border-slate-800">
+                            <div className="absolute top-0 right-0 p-8 opacity-10"><Fingerprint size={140} className="text-primary" /></div>
+                            <div className="relative z-10">
+                               <h4 className="text-2xl font-black uppercase tracking-tight leading-tight">Authorize Induction</h4>
+                               <p className="text-sm text-slate-400 mt-3 font-medium italic leading-relaxed">
+                                  "Deploying <span className="text-white font-bold">{formData.name}</span> to the <span className="text-white font-bold">{formData.dept}</span> unit at tier <span className="text-white font-bold">{formData.level}</span>. All changes are immutable and indexed in the global audit trail."
+                                </p>
+                            </div>
+                            <div className="flex items-center space-x-3 text-primary relative z-10 pt-4 border-t border-white/5">
+                               <ShieldCheck size={20} />
+                               <span className="text-[10px] font-black uppercase tracking-[0.2em]">SOC-2 Governance Synchronized</span>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {!isDeploying && (
+          <div className="p-10 border-t border-slate-100 bg-slate-50 flex items-center justify-between sticky bottom-0 z-10">
+             <button onClick={() => step > 1 ? setStep(step - 1) : onClose()} className="px-8 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-800 transition-colors">
+                {step === 1 ? 'Discard Architect' : 'Previous Module'}
+             </button>
+             <button 
+              disabled={step === 1 && (!formData.name || !formData.email) || step === 2 && !formData.title}
+              onClick={() => step < 3 ? setStep(step + 1) : handleInduct()}
+              className="px-14 py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-30 flex items-center space-x-3"
+             >
+                <span>{step === 3 ? 'Deploy Personnel Node' : 'Next Protocol'}</span>
+                <ArrowRight size={14} />
+             </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- Sub-Components ---
+
+const DataIndicator = ({ label, value, color }: any) => {
+  const colorMap: any = { primary: 'text-primary', green: 'text-green-600', red: 'text-red-600' };
+  return (
+    <div className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm text-center group hover:shadow-md transition-all">
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{label}</p>
+      <p className={`text-2xl font-black ${colorMap[color]}`}>{value}</p>
+    </div>
+  );
+};
+
+const PersonRow = ({ person, canManage, onView }: any) => (
+  <tr className="group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={onView}>
+    <td className="px-8 py-6">
+      <div className="flex items-center space-x-5">
+        <img src={person.avatar} alt={person.name} className="w-12 h-12 rounded-2xl border-2 border-white shadow-md object-cover group-hover:scale-105 transition-transform" />
+        <div>
+           <p className="text-sm font-black text-slate-900 group-hover:text-primary transition-colors uppercase tracking-tight">{person.name}</p>
+           <p className="text-[10px] text-slate-400 font-bold mt-0.5">{person.email}</p>
+        </div>
+      </div>
+    </td>
+    <td className="px-8 py-6">
+       <div>
+          <p className="text-xs font-black text-slate-700 uppercase tracking-tight leading-none">{person.title}</p>
+          <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[8px] font-black uppercase tracking-widest mt-2 inline-block border border-slate-200">{person.level} TIER</span>
+       </div>
+    </td>
+    <td className="px-8 py-6">
+       <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.1em] px-3 py-1 bg-slate-50 border border-slate-100 rounded-xl">{person.dept}</span>
+    </td>
+    <td className="px-8 py-6">
+       <div className="flex items-center space-x-3">
+          <div className="h-1.5 w-24 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+             <div className={`h-full transition-all duration-1000 ${person.health > 80 ? 'bg-green-500' : person.health > 50 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${person.health}%` }}></div>
+          </div>
+          <span className={`text-[10px] font-black ${person.health < 50 ? 'text-red-500' : 'text-slate-900'}`}>{person.health}%</span>
+          {person.pipOngoing && (
+             <div className="p-1 bg-indigo-50 text-indigo-600 rounded-lg border border-indigo-100 animate-pulse" title="PIP Ongoing">
+                <PipIcon size={12} />
+             </div>
+          )}
+       </div>
+    </td>
+    <td className="px-8 py-6 text-right">
+       <div className="flex justify-end items-center space-x-2">
+          <button className="p-3 bg-white border border-slate-100 rounded-xl text-slate-300 hover:text-primary transition-all shadow-sm group-hover:shadow-md"><ExternalLink size={18} /></button>
+       </div>
+    </td>
+  </tr>
+);
+
+const ProfileTabButton = ({ active, onClick, label }: any) => (
+  <button 
+    onClick={onClick}
+    className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${active ? 'bg-white text-primary shadow-xl ring-1 ring-slate-100' : 'text-slate-500 hover:bg-white/50 hover:text-slate-700'}`}
+  >
+    {label}
+  </button>
+);
+
+/**
  * PIP PROGRESS DASHBOARD - COMPREHENSIVE VIEW
- * Opens when a manager views an ongoing PIP
  */
 const PipProgressDashboard = ({ person, onBack }: { person: any, onBack: () => void }) => {
   const pip = person.pipData;
 
   return (
     <div className="space-y-8 animate-in slide-in-from-right duration-500 pb-20">
-       {/* Header & Meta */}
        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-6">
              <button 
@@ -597,15 +852,14 @@ const PipProgressDashboard = ({ person, onBack }: { person: any, onBack: () => v
           <div className="flex items-center space-x-3">
              <button className="flex items-center space-x-2 px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all">
                 <Download size={14} />
-                <span>Export Progress Report</span>
+                <span>Export Analysis Report</span>
              </button>
-             <button className="px-8 py-2.5 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">
+             <button className="px-8 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">
                 Update Milestones
              </button>
           </div>
        </div>
 
-       {/* Overall Progress Hub */}
        <div className="bg-white border border-slate-200 rounded-[3rem] p-10 shadow-sm flex flex-col md:flex-row items-center justify-between gap-12 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-10 opacity-5">
              <Target size={180} className="text-indigo-600" />
@@ -638,11 +892,11 @@ const PipProgressDashboard = ({ person, onBack }: { person: any, onBack: () => v
              </div>
           </div>
           <div className="grid grid-cols-2 gap-4 relative z-10 min-w-[320px]">
-             <div className="p-5 bg-slate-50 border border-slate-100 rounded-3xl text-center">
+             <div className="p-5 bg-slate-50 border border-slate-100 rounded-3xl text-center shadow-inner">
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Goals Hit</p>
                 <p className="text-2xl font-black text-slate-900">2 / 3</p>
              </div>
-             <div className="p-5 bg-slate-50 border border-slate-100 rounded-3xl text-center">
+             <div className="p-5 bg-slate-50 border border-slate-100 rounded-3xl text-center shadow-inner">
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Actions Logged</p>
                 <p className="text-2xl font-black text-slate-900">8 / 12</p>
              </div>
@@ -650,9 +904,7 @@ const PipProgressDashboard = ({ person, onBack }: { person: any, onBack: () => v
        </div>
 
        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Main Context Panels */}
           <div className="lg:col-span-8 space-y-8">
-             {/* Section 1: Identified Gaps (Initiation Content) */}
              <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 shadow-sm space-y-8">
                 <div className="flex items-center space-x-3 mb-2">
                    <div className="p-2 bg-red-50 text-red-600 rounded-xl">
@@ -668,23 +920,13 @@ const PipProgressDashboard = ({ person, onBack }: { person: any, onBack: () => v
                       "{pip.gaps}"
                    </p>
                 </div>
-                <div className="flex items-center space-x-4 pt-2">
-                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center">
-                      <ShieldCheck size={12} className="mr-1.5 text-green-500" /> Policy Verified Initiation
-                   </span>
-                </div>
              </div>
 
-             {/* Section 2: SMART Goal Attainment Tracking */}
              <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 shadow-sm space-y-10">
                 <div className="flex items-center justify-between">
-                   <div>
-                      <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">SMART Goal Attainment</h3>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Real-time vector progress tracking</p>
-                   </div>
-                   <span className="px-3 py-1 bg-slate-50 text-slate-400 rounded-lg text-[8px] font-black uppercase tracking-widest border border-slate-100">3 Strategic Anchors</span>
+                   <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">SMART Goal Attainment</h3>
+                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Real-time vector progress tracking</p>
                 </div>
-
                 <div className="space-y-4">
                    {pip.goals.map((goal: any) => (
                      <div key={goal.id} className="p-6 bg-slate-50/50 border border-slate-100 rounded-3xl group hover:bg-white hover:shadow-xl transition-all duration-500">
@@ -710,34 +952,9 @@ const PipProgressDashboard = ({ person, onBack }: { person: any, onBack: () => v
                    ))}
                 </div>
              </div>
-
-             {/* Section 3: Required Action Item Ledger */}
-             <div className="bg-white border border-slate-200 rounded-[2.5rem] p-10 shadow-sm space-y-10">
-                <div className="flex items-center justify-between">
-                   <div>
-                      <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Required Action Compliance</h3>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Daily activities log and verification</p>
-                   </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   {pip.actions.map((action: any) => (
-                     <div key={action.id} className="p-5 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between group hover:bg-white hover:border-indigo-600/20 transition-all">
-                        <div className="flex items-center space-x-4">
-                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm ${action.status === 'Completed' ? 'bg-green-100 text-green-600' : 'bg-white text-slate-400 border border-slate-100'}`}>
-                              {action.status === 'Completed' ? <CheckCircle2 size={20} /> : <Clock size={20} />}
-                           </div>
-                           <span className="text-xs font-bold text-slate-700 uppercase tracking-tight leading-tight">{action.task}</span>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${action.status === 'Completed' ? 'bg-green-50 text-green-600' : 'bg-slate-200 text-slate-500'}`}>{action.status}</span>
-                     </div>
-                   ))}
-                </div>
-             </div>
           </div>
 
-          {/* Sidebar Analytics & Support */}
           <div className="lg:col-span-4 space-y-8">
-             {/* AI PIP Analysis */}
              <div className="bg-slate-900 rounded-[3rem] p-10 text-white relative overflow-hidden group shadow-2xl border border-slate-800">
                 <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
                    <BrainCircuit size={120} className="text-primary" />
@@ -750,45 +967,9 @@ const PipProgressDashboard = ({ person, onBack }: { person: any, onBack: () => v
                       <h3 className="text-[10px] font-black text-primary uppercase tracking-[0.3em] border-l-2 border-primary pl-4">Calibration Insight</h3>
                    </div>
                    <p className="text-lg font-medium text-slate-300 leading-relaxed italic mb-10">
-                      "Marcus's PR cycle velocity has increased by <span className="text-white font-bold">14%</span> since protocol launch. However, FinOps goal (g2) remains at high risk. Recommend paired engineering session with Lead Hub."
+                      "Real-time velocity for this personnel is tracking at <span className="text-white font-bold">68%</span>. Critical path correction required for the Cloud Tagging vector (g2) before cycle closure."
                    </p>
-                   <button className="w-full py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">Schedule Correction Sync</button>
-                </div>
-             </div>
-
-             {/* Institutional Support Matrix (Initiation Content) */}
-             <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm space-y-8">
-                <div className="flex items-center justify-between">
-                   <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center">
-                      <Users size={16} className="mr-2 text-primary" /> Support Matrix
-                   </h3>
-                   <span className="px-2 py-0.5 bg-primary/5 text-primary rounded-lg text-[8px] font-black uppercase">Institutional</span>
-                </div>
-                <div className="space-y-4">
-                   {pip.resources.map((res: any) => (
-                      <div key={res.id} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center space-x-4 hover:bg-white hover:shadow-md transition-all group cursor-default">
-                         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-indigo-600 group-hover:scale-110 transition-transform">
-                            {res.type === 'Mentorship' ? <UserPlus size={18} /> : <GraduationCap size={18} />}
-                         </div>
-                         <div>
-                            <p className="text-xs font-black text-slate-900 uppercase tracking-tight truncate leading-none mb-1">{res.item}</p>
-                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{res.type}</p>
-                         </div>
-                      </div>
-                   ))}
-                </div>
-             </div>
-
-             {/* Governance & Sign-off Archive */}
-             <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 shadow-sm">
-                <div className="flex items-center justify-between mb-8">
-                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Initiation Sign-offs</h4>
-                   <span className="text-[9px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded uppercase border border-green-100">Verified Ledger</span>
-                </div>
-                <div className="space-y-6">
-                   <SignOffRow name="Alex Rivera" role="MANAGER" signed date="Oct 01" />
-                   <SignOffRow name="Marcus Vane" role="EMPLOYEE" signed date="Oct 02" />
-                   <SignOffRow name="Sarah Carter" role="HRBP" signed date="Oct 01" />
+                   <button className="w-full py-4 bg-primary text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.02] transition-all">Request Performance Sync</button>
                 </div>
              </div>
           </div>
@@ -796,76 +977,5 @@ const PipProgressDashboard = ({ person, onBack }: { person: any, onBack: () => v
     </div>
   );
 };
-
-const SignOffRow = ({ name, role, signed, date }: any) => (
-  <div className="flex items-center justify-between">
-     <div className="flex items-center space-x-3">
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${signed ? 'bg-green-50 border-green-200 text-green-600 shadow-sm' : 'bg-slate-50 border-slate-200 text-slate-300'}`}>
-           {signed ? <ShieldCheck size={16} /> : <User size={16} />}
-        </div>
-        <div>
-           <p className="text-xs font-black text-slate-800 uppercase tracking-tight leading-none">{name}</p>
-           <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">{role}</p>
-        </div>
-     </div>
-     <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{date}</span>
-  </div>
-);
-
-const DataIndicator = ({ label, value, color }: any) => {
-  const colorMap: any = { primary: 'text-primary', green: 'text-green-600', red: 'text-red-600' };
-  return (
-    <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm text-center group hover:shadow-md transition-all">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-      <p className={`text-2xl font-black ${colorMap[color]}`}>{value}</p>
-    </div>
-  );
-};
-
-const PersonRow = ({ person, canManage, onView }: any) => (
-  <tr className="group hover:bg-slate-50/50 transition-all cursor-pointer" onClick={onView}>
-    <td className="px-6 py-4">
-      <div className="flex items-center space-x-3">
-        <img src={person.avatar} alt={person.name} className="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" />
-        <div>
-           <p className="text-sm font-bold text-slate-800 group-hover:text-primary transition-colors">{person.name}</p>
-           <p className="text-[10px] text-slate-500">{person.email}</p>
-        </div>
-      </div>
-    </td>
-    <td className="px-6 py-4">
-       <div>
-          <p className="text-xs font-bold text-slate-700">{person.title}</p>
-          <span className="px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-black uppercase tracking-widest">{person.level}</span>
-       </div>
-    </td>
-    <td className="px-6 py-4 text-xs font-medium text-slate-600 uppercase tracking-tight">{person.dept}</td>
-    <td className="px-6 py-4">
-       <div className="flex items-center space-x-2">
-          <div className="h-1.5 w-16 bg-slate-100 rounded-full overflow-hidden shadow-inner">
-             <div className={`h-full rounded-full ${person.health > 80 ? 'bg-green-500' : person.health > 40 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${person.health}%` }}></div>
-          </div>
-          <span className={`text-[10px] font-black ${person.health < 50 ? 'text-red-500' : 'text-slate-400'}`}>{person.health}%</span>
-          {person.pipOngoing && (
-             <div className="p-1 bg-indigo-50 text-indigo-600 rounded-md border border-indigo-100" title="PIP Ongoing">
-                <PipIcon size={10} />
-             </div>
-          )}
-       </div>
-    </td>
-    <td className="px-6 py-4 text-right">
-       <button onClick={(e) => { e.stopPropagation(); onView(); }} className="p-2 text-slate-300 hover:text-primary hover:bg-white rounded-lg transition-all"><ExternalLink size={18} /></button>
-    </td>
-  </tr>
-);
-
-const ProfileTabButton = ({ active, onClick, label }: any) => (
-  <button 
-    onClick={onClick}
-    className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${active ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-  >
-    {label}
-  </button>
-);
 
 export default PeoplePage;

@@ -56,7 +56,9 @@ import {
   Download,
   Timer,
   FileSearch,
-  ChevronRight as ChevronRightIcon
+  ChevronRight as ChevronRightIcon,
+  /* Added History to fix potential "Illegal constructor" error */
+  History
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { UserRole } from '../types';
@@ -1156,7 +1158,7 @@ const CycleSignatureModal = ({ cycleName, onClose, onConfirm }: any) => {
   return (
     <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
        <div className="bg-white rounded-[3.5rem] w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-200">
-          <div className="p-10 border-b border-slate-100 flex items-center justify-between">
+          <div className="p-10 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
              <div className="flex items-center space-x-5">
                 <div className="w-14 h-14 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-200">
                    <Fingerprint size={32} />
@@ -1183,7 +1185,7 @@ const CycleSignatureModal = ({ cycleName, onClose, onConfirm }: any) => {
              </div>
 
              <div className="space-y-6">
-                <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Electronic Signature</h4>
+                <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-1">Electronic Signature</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                    <div className="space-y-2">
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-1">Option A: Type Legal Name</p>
@@ -1592,7 +1594,7 @@ const RespondToRequestModal = ({ request, onClose }: any) => {
       <div className="bg-white rounded-[3rem] w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="p-10 border-b border-slate-100 flex items-center justify-between bg-slate-50/30">
           <div className="flex items-center space-x-5">
-            <img src={request.avatar} className="w-14 h-14 rounded-2xl border-2 border-slate-50 shadow-xl object-cover" alt={request.from} />
+            <img src={request.avatar} className="w-14 h-14 rounded-2xl border-2 border-white shadow-xl object-cover" alt={request.from} />
             <div>
               <h3 className="text-xl font-black text-slate-900 tracking-tight uppercase leading-none">Response for: {request.from}</h3>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1.5">{request.role} • {request.relationship}</p>
