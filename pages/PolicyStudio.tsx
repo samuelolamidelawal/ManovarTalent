@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   ShieldAlert, 
@@ -285,6 +284,7 @@ const PolicyStudioPage: React.FC = () => {
   const [editingTemplate, setEditingTemplate] = useState<RatingTemplate | null>(null);
   const [isBuildTemplateModalOpen, setIsBuildTemplateModalOpen] = useState(false);
   const [isPipModalOpen, setIsPipModalOpen] = useState(false);
+  const [editingPipTemplate, setEditingPipTemplate] = useState<PIPTemplate | null>(null);
   const [isWorkflowDesignerOpen, setIsWorkflowDesignerOpen] = useState(false);
   const [editingWorkflow, setEditingWorkflow] = useState<ReviewWorkflow | null>(null);
 
@@ -308,6 +308,12 @@ const PolicyStudioPage: React.FC = () => {
   const handleAddPipTemplate = (newPip: PIPTemplate) => {
     setPipTemplates([...pipTemplates, newPip]);
     setIsPipModalOpen(false);
+    setIsDirty(true);
+  };
+
+  const handleUpdatePipTemplate = (updated: PIPTemplate) => {
+    setPipTemplates(pipTemplates.map(p => p.id === updated.id ? updated : p));
+    setEditingPipTemplate(null);
     setIsDirty(true);
   };
 
@@ -523,7 +529,7 @@ const PolicyStudioPage: React.FC = () => {
                                <span key={sec.id} className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[8px] font-black uppercase tracking-widest">{sec.type}</span>
                              ))}
                           </div>
-                          <button className="w-full py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-900 transition-all shadow-lg">Manage PIP Framework</button>
+                          <button onClick={() => setEditingPipTemplate(template)} className="w-full py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-900 transition-all shadow-lg">Manage PIP Framework</button>
                        </div>
                     </div>
                   ))}
@@ -707,8 +713,12 @@ const PolicyStudioPage: React.FC = () => {
       )}
 
       {/* Modal: Build PIP Template Wizard */}
-      {isPipModalOpen && (
-        <BuildPipTemplateWizard onAdd={handleAddPipTemplate} onClose={() => setIsPipModalOpen(false)} />
+      {(isPipModalOpen || editingPipTemplate) && (
+        <BuildPipTemplateWizard 
+          pipTemplate={editingPipTemplate}
+          onAdd={editingPipTemplate ? handleUpdatePipTemplate : handleAddPipTemplate} 
+          onClose={() => { setIsPipModalOpen(false); setEditingPipTemplate(null); }} 
+        />
       )}
 
       {/* Modal: Add Bucket Modal */}
@@ -1213,7 +1223,7 @@ const ChangeItem = ({ user, action, time }: any) => (
 const PolicyAuditDrawer = ({ onClose }: any) => (
   <>
     <div className="fixed inset-0 z-[150] bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose}></div>
-    <div className="fixed top-0 right-0 bottom-0 w-full sm:w-[500px] bg-white z-[160] shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 overflow-hidden">
+    <div className="fixed top-0 right-0 bottom-0 w-full sm:w-[550px] bg-white z-[160] shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 overflow-hidden">
        <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50">
           <div className="flex items-center space-x-4">
              <div className="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-lg"><History size={24}/></div>
@@ -1248,7 +1258,7 @@ const PolicyAuditDrawer = ({ onClose }: any) => (
 
 const DeployFrameworkModal = ({ onConfirm, onClose }: any) => (
   <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-    <div className="bg-white rounded-[2.5rem] w-full max-md shadow-2xl overflow-hidden border border-slate-200">
+    <div className="bg-white rounded-[2.5rem] w-full max-w-sm shadow-2xl overflow-hidden border border-slate-200">
       <div className="p-8 text-center space-y-6">
         <div className="w-20 h-20 bg-primary/10 text-primary rounded-[2rem] flex items-center justify-center mx-auto shadow-inner">
            <Rocket size={40} />
@@ -1330,17 +1340,140 @@ const CreateCycleWizard = ({ onAdd, onClose, templates }: any) => {
   );
 };
 
-const BuildPipTemplateWizard = ({ onAdd, onClose }: any) => {
-  const [formData, setFormData] = useState({ name: '', desc: '', sections: [{ id: '1', type: 'gaps', label: 'Performance Gaps Identified', required: true }, { id: '2', type: 'smart', label: 'SMART Goals (Mini-OKRs)', required: true }, { id: '3', type: 'actions', label: 'Required Daily Actions', required: true }, { id: '4', type: 'resources', label: 'Institutional Support Resources', required: false }] });
-  const toggleRequired = (id: string) => { setFormData(prev => ({ ...prev, sections: prev.sections.map(s => s.id === id ? { ...s, required: !s.required } : s) })); };
-  const handleSubmit = () => { onAdd({ id: `pip-${Date.now()}`, name: formData.name || 'New PIP Framework', desc: formData.desc || 'Institutional PIP guidelines.', sections: formData.sections }); };
+const BuildPipTemplateWizard = ({ pipTemplate, onAdd, onClose }: any) => {
+  const [formData, setFormData] = useState(pipTemplate || { 
+    name: '', 
+    desc: '', 
+    sections: [
+      { id: '1', type: 'gaps', label: 'Performance Gaps Identified', required: true }, 
+      { id: '2', type: 'smart', label: 'SMART Goals (Mini-OKRs)', required: true }, 
+      { id: '3', type: 'actions', label: 'Required Daily Actions', required: true }, 
+      { id: '4', type: 'resources', label: 'Institutional Support Resources', required: false }
+    ] 
+  });
+  
+  const isEditing = !!pipTemplate;
+
+  const toggleRequired = (id: string) => { 
+    setFormData((prev: any) => ({ 
+      ...prev, 
+      sections: prev.sections.map((s: any) => s.id === id ? { ...s, required: !s.required } : s) 
+    })); 
+  };
+
+  const addCustomSection = () => {
+    const newSection = { 
+      id: `custom-${Date.now()}`, 
+      type: 'custom', 
+      label: 'New Strategic Section', 
+      required: false 
+    };
+    setFormData((prev: any) => ({ ...prev, sections: [...prev.sections, newSection] }));
+  };
+
+  const removeSection = (id: string) => {
+    setFormData((prev: any) => ({ ...prev, sections: prev.sections.filter((s: any) => s.id !== id) }));
+  };
+
+  const handleSubmit = () => { 
+    onAdd({ 
+      id: formData.id || `pip-${Date.now()}`, 
+      name: formData.name || 'New PIP Framework', 
+      desc: formData.desc || 'Institutional PIP guidelines.', 
+      sections: formData.sections 
+    }); 
+  };
+
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-white rounded-[2.5rem] w-full max-w-xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
-        <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-indigo-50/50"><div className="flex items-center space-x-4"><div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200"><PipIcon size={24}/></div><div><h3 className="text-xl font-bold text-slate-900 tracking-tight uppercase">PIP Architect</h3><p className="text-xs text-slate-500 mt-1">Define institutional escalation standards</p></div></div><button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={24}/></button></div>
-        <div className="p-8 space-y-8 overflow-y-auto custom-scrollbar"><div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Framework Designation</label><input value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. Sales Unit Escalation Policy" className="w-full bg-white text-slate-900 border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-lg outline-none focus:border-indigo-600 transition-all shadow-inner uppercase tracking-tight" /></div>
-        <div className="space-y-4"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Mandatory Policy Sections</label><div className="space-y-2">{formData.sections.map((sec) => (<div key={sec.id} className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between group hover:bg-white transition-all shadow-sm"><div className="flex items-center space-x-4"><div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all">{sec.type === 'gaps' ? <AlertCircle size={18}/> : sec.type === 'smart' ? <TargetIcon size={18}/> : sec.type === 'actions' ? <ListTodo size={18}/> : <Info size={18}/>}</div><span className="text-xs font-bold text-slate-700 uppercase tracking-tight">{sec.label}</span></div><div className="flex items-center space-x-3"><span className="text-[9px] font-black uppercase text-slate-400">Required</span><div onClick={() => toggleRequired(sec.id)} className={`w-8 h-4 rounded-full relative transition-all cursor-pointer ${sec.required ? 'bg-indigo-600' : 'bg-slate-200'}`}><div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${sec.required ? 'right-0.5' : 'left-0.5'}`} /></div></div></div>))}</div></div></div>
-        <div className="p-8 border-t border-slate-100 bg-slate-50 flex items-center justify-end space-x-3"><button onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors uppercase tracking-widest text-[11px]">Cancel Architect</button><button disabled={!formData.name} onClick={handleSubmit} className="px-10 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-indigo-200 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-30">Register PIP Policy</button></div>
+      <div className="bg-white rounded-[2.5rem] w-full max-w-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+        <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-indigo-50/50">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
+              <PipIcon size={24}/>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-slate-900 tracking-tight uppercase">{isEditing ? 'Manage PIP Logic' : 'PIP Architect'}</h3>
+              <p className="text-xs text-slate-500 mt-1 uppercase font-bold tracking-widest">{isEditing ? 'Modify institutional protocol' : 'Define institutional escalation standards'}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 transition-colors"><X size={24}/></button>
+        </div>
+        
+        <div className="p-10 space-y-10 overflow-y-auto custom-scrollbar flex-1 bg-white">
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Framework Designation</label>
+              <input 
+                value={formData.name} 
+                onChange={e => setFormData({ ...formData, name: e.target.value })} 
+                placeholder="e.g. Sales Unit Escalation Policy" 
+                className="w-full bg-white text-slate-900 border-2 border-slate-100 rounded-2xl px-6 py-4 font-bold text-lg outline-none focus:border-indigo-600 transition-all shadow-inner uppercase tracking-tight" 
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Policy Description</label>
+              <textarea 
+                value={formData.desc} 
+                onChange={e => setFormData({ ...formData, desc: e.target.value })} 
+                placeholder="Describe the scope of this performance intervention..." 
+                className="w-full bg-white text-slate-900 border-2 border-slate-100 rounded-2xl px-6 py-4 text-sm font-medium outline-none focus:border-indigo-600 transition-all shadow-inner resize-none h-24" 
+              />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-1">
+               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mandatory Policy Sections</label>
+               <button onClick={addCustomSection} className="text-[9px] font-black text-indigo-600 hover:underline uppercase tracking-widest flex items-center space-x-1">
+                  <Plus size={10} />
+                  <span>Append Segment</span>
+               </button>
+            </div>
+            <div className="space-y-2">
+               {formData.sections.map((sec: any) => (
+                  <div key={sec.id} className="p-5 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between group hover:bg-white transition-all shadow-sm">
+                    <div className="flex items-center space-x-4 flex-1">
+                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                        {sec.type === 'gaps' ? <AlertCircle size={18}/> : sec.type === 'smart' ? <TargetIcon size={18}/> : sec.type === 'actions' ? <ListTodo size={18}/> : <Info size={18}/>}
+                      </div>
+                      <input 
+                        value={sec.label}
+                        onChange={(e) => setFormData((prev: any) => ({
+                          ...prev,
+                          sections: prev.sections.map((s: any) => s.id === sec.id ? { ...s, label: e.target.value } : s)
+                        }))}
+                        className="bg-transparent border-none p-0 text-xs font-bold text-slate-700 uppercase tracking-tight focus:ring-0 flex-1"
+                      />
+                    </div>
+                    <div className="flex items-center space-x-6">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-[9px] font-black uppercase text-slate-400">Required</span>
+                        {/* Fixed error by correctly referencing sec.id */}
+                        <div onClick={() => toggleRequired(sec.id)} className={`w-8 h-4 rounded-full relative transition-all cursor-pointer ${sec.required ? 'bg-indigo-600' : 'bg-slate-200'}`}>
+                          <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${sec.required ? 'right-0.5' : 'left-0.5'}`} />
+                        </div>
+                      </div>
+                      {sec.type === 'custom' && (
+                        <button onClick={() => removeSection(sec.id)} className="p-1 text-slate-300 hover:text-red-500"><Trash2 size={14}/></button>
+                      )}
+                    </div>
+                  </div>
+               ))}
+            </div>
+          </div>
+        </div>
+        
+        <div className="p-8 border-t border-slate-100 bg-slate-50 flex items-center justify-end space-x-3">
+           <button onClick={onClose} className="px-6 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors uppercase tracking-widest text-[11px]">Cancel architect</button>
+           <button 
+             disabled={!formData.name} 
+             onClick={handleSubmit} 
+             className="px-10 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl shadow-indigo-200 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-30"
+           >
+              {isEditing ? 'Commit Changes' : 'Register PIP Policy'}
+           </button>
+        </div>
       </div>
     </div>
   );
